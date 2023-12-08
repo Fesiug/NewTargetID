@@ -19,25 +19,11 @@ function ftgid_regenfonts()
 		font = "Bahnschrift",
 		size = ScreenScale(12) * cv_ff,
 		weight = 500,
-		blursize = 0,
-	} )
-	surface.CreateFont( "NTGID_1_s", {
-		font = "Bahnschrift",
-		size = ScreenScale(12) * cv_ff,
-		weight = 500,
-		blursize = 100,
 	} )
 	surface.CreateFont( "NTGID_2", {
 		font = "Bahnschrift",
 		size = ScreenScale(6) * cv_ff,
 		weight = 0,
-		blursize = 0,
-	} )
-	surface.CreateFont( "NTGID_2_s", {
-		font = "Bahnschrift",
-		size = ScreenScale(6) * cv_ff,
-		weight = 0,
-		blursize = 100,
 	} )
 end
 ftgid_regenfonts()
@@ -46,128 +32,97 @@ cvars.AddChangeCallback("ftgid_font_scale", function()
 	ftgid_regenfonts()
 end)
 
-local def = Color( 255, 255, 100, 255 )
 local COLOR_WHITE = Color( 255, 255, 255, 255 )
 local COLOR_SHAD = Color( 0, 0, 0, 127 )
 local DOT = Material("fid/dot.png", "mips smooth")
-local HULLSIZE = 4
+local hs = 1
+local hsv = Vector( hs, hs, hs )
+local hsvm = -hsv
 
 local COOLNUM = 0
 
+local lastthing = NULL
+
 hook.Add( "HUDDrawTargetID", "HidePlayerInfo", function()
 	if cv:GetBool() then
-
-	local sef = LocalPlayer()
-	local trace = util.TraceLine( {
-		start = sef:EyePos(),
-		endpos = sef:EyePos() + ( sef:GetAimVector() * 32768 ),
-		filter = {sef, sef:GetVehicle(), IsValid(sef:GetVehicle()) and sef:GetVehicle():GetParent()},
-		mask = MASK_SHOT_HULL
-	} )
-	if ( !trace.Hit ) then COOLNUM = 0 return end
-	if ( !trace.HitNonWorld ) then COOLNUM = 0 return end
-	local hitent = trace.Entity
-	local ss = ScreenScale(1) * cv_f:GetFloat()
-	local tc = GAMEMODE:GetTeamColor( hitent )
-	
-	local text = "ERROR"
-	local font = "NTGID_1"
-	local font_s = "NTGID_1_s"
-	
-	if hitent and hitent:IsValid() then
-		if ( hitent:IsPlayer() ) then
-			text = hitent:Nick()
-		elseif sef:GetVehicle() == hitent then
-			COOLNUM = 0
-			return
-		-- elseif ( cv_e:GetBool() and hitent:IsScripted() ) then
-		-- 	text = hitent.PrintName or "(SENT missing PrintName)"
-		elseif ( cv_e:GetBool() ) then
-			text = language.GetPhrase(hitent.PrintName or hitent:GetClass())
+		local sef = LocalPlayer()
+		local tracer = {
+			start = sef:EyePos(),
+			endpos = sef:EyePos() + ( sef:GetAimVector() * 32768 ),
+			filter = {sef, sef:GetVehicle(), IsValid(sef:GetVehicle()) and sef:GetVehicle():GetParent()},
+			mins = hsvm,
+			maxs = hsv,
+			mask = MASK_SHOT,
+		}
+		local trace = util.TraceHull( tracer )
+		local hitent
+		if IsValid(trace.Entity) then
+			hitent = trace.Entity
+			lastthing = hitent
 		else
-			COOLNUM = 0
-			return
-			--text = hitent:GetClass()
+			local trace2 = util.TraceLine( tracer )
+			if IsValid(trace2.Entity) then
+				hitent = trace2.Entity
+				lastthing = hitent
+			end
 		end
-	end
-
-	COLOR_WHITE.a = COOLNUM*255
-	COLOR_SHAD.a = COOLNUM*127
-	COOLNUM = math.Approach(COOLNUM, 1, FrameTime()/0.2)
-	
-	local tc
-	if hitent.Team and hitent:Team() != TEAM_UNASSIGNED then
-		tc = hitent:Team()
-	end
-	
-	surface.SetFont( font )
-	local w, h = surface.GetTextSize( text )
-
-	local mememm, scrw, scrh = hitent:WorldSpaceCenter(), ScrW(), ScrH()
-	mememmm = mememm:ToScreen()
-	local x = math.Clamp(mememmm.x, 0+w*0.5, scrw-w*0.5)
-	local y = math.Clamp(mememmm.y+h*0.5, 0, scrh-h*1.5)
-	
-	x = x - w / 2
-	--y = y + (ss*30)
-	
-	-- The fonts internal drop shadow looks lousy with AA on
-	surface.SetFont( font_s )
-	draw.SimpleText( text, font, x + ss, y + ss, COLOR_SHAD )
-	surface.SetFont( font )
-	draw.SimpleText( text, font, x, y, COLOR_WHITE )
-
-	if tc then
-		local teamcol = team.GetColor(tc)
-		surface.SetMaterial( DOT )
-		surface.SetDrawColor( COLOR_SHAD )
-		surface.DrawTexturedRect( x - (ss*(5-1)), y + (ss*(5+1)), (ss*4), (ss*4) )
-		surface.SetDrawColor( teamcol )
-		surface.DrawTexturedRect( x - (ss*5), y + (ss*5), (ss*4), (ss*4) )
-	end
-	
-	--y = y + h + 5
-	
-	font_s = "NTGID_2"
-	font = "NTGID_2"
-
-	if tc then
-		local teamtext = team.GetName( tc )
-		surface.SetFont( font )
-		local tw, th = surface.GetTextSize( text )
-		draw.SimpleText( teamtext, font, x, y, teamcol )
-	end
-	
-	COLOR_WHITE.r = color_white.r
-	COLOR_WHITE.g = color_white.g
-	COLOR_WHITE.b = color_white.b
-	
-	local cv_re = cv_r:GetBool()
-	if hitent:Health() > 0 then
-		local text = cv_re and hitent:Health() .. " ♥" or math.Round(hitent:Health() / hitent:GetMaxHealth() * 100, 2) .. "%"
+		COOLNUM = math.Approach(COOLNUM, IsValid(hitent) and 1 or 0, FrameTime()/0.05)
+		hitent = lastthing
+		local ss = ScreenScale(1) * cv_f:GetFloat()
+		local tc = GAMEMODE:GetTeamColor( hitent )
 		
-		surface.SetFont( font )
-		local w2, h2 = surface.GetTextSize( text )
-		
-		surface.SetFont( font_s )
-		draw.SimpleText( text, font, x + ss, y + (ss*12), COLOR_SHAD )
-		surface.SetFont( font )
-		draw.SimpleText( text, font, x, y + (ss*11), COLOR_WHITE )
-	end
+		if IsValid(hitent) and COOLNUM>0 then
+			local text
+			if ( hitent:IsPlayer() ) then
+				text = hitent:Nick()
+			elseif ( cv_e:GetBool() ) then
+				text = language.GetPhrase(hitent.PrintName or hitent:GetClass())
+			else
+				return
+			end
 
-	if hitent.Armor and isfunction(hitent.Armor) and hitent:Armor() > 0 then
-		local text = cv_re and "♦ " .. hitent:Armor() or math.Round(hitent:Armor() / hitent:GetMaxArmor() * 100, 2) .. "%"
-		
-		surface.SetFont( font )
-		local w2, h2 = surface.GetTextSize( text )
-		
-		surface.SetFont( font_s )
-		draw.SimpleText( text, font, x + ss + w, y + (ss*12), COLOR_SHAD, 2)
-		surface.SetFont( font )
-		draw.SimpleText( text, font, x + w, y + (ss*11), COLOR_WHITE, 2 )
-	end
+			COLOR_WHITE.a = COOLNUM*255
+			COLOR_SHAD.a = COOLNUM*200
+			
+			local tc
+			if hitent.Team and hitent:Team() != TEAM_UNASSIGNED then
+				tc = hitent:Team()
+			end
+			
+			local entc, sw, sh = hitent:WorldSpaceCenter(), ScrW(), ScrH()
+			entc_s = entc:ToScreen()
+			local x = math.Round( math.Clamp( entc_s.x, sw * 0.15, sw * 0.85 ) )
+			local y = math.Round( math.Clamp( entc_s.y, sh * 0.15, sh * 0.85 ) )
 
-	return true
+			surface.SetFont( "NTGID_1" )
+			local tw = surface.GetTextSize( text )
+			tw = math.Clamp( tw, ss*28, ss*64 )
+			local tw2 = tw/2
 
+			draw.SimpleText( text, "NTGID_1", x + ss, y, COLOR_SHAD, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP )
+			draw.SimpleText( text, "NTGID_1", x, y - ss, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP )
+
+			local cv_re = cv_r:GetBool()
+			local e_armor = hitent.Armor and isfunction(hitent.Armor) and hitent:Armor() > 0 
+			if e_armor then
+				local text = cv_re and "♦ " .. hitent:Armor() or math.Round(hitent:Armor() / hitent:GetMaxArmor() * 100, 2) .. "%"
+				draw.SimpleText( text, "NTGID_2", x + tw2 + ss,	y + ss*12, COLOR_SHAD, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
+				draw.SimpleText( text, "NTGID_2", x + tw2,		y - ss + ss*12, COLOR_WHITE, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
+			end
+			if hitent:Health() > 0 then
+				local text = cv_re and hitent:Health() .. " ♥" or math.Round(hitent:Health() / hitent:GetMaxHealth() * 100, 2) .. "%"
+				draw.SimpleText( text, "NTGID_2", x - (e_armor and tw2 or 0) + ss,	y + ss*12, COLOR_SHAD, (e_armor and TEXT_ALIGN_LEFT or TEXT_ALIGN_CENTER), TEXT_ALIGN_TOP )
+				draw.SimpleText( text, "NTGID_2", x - (e_armor and tw2 or 0),		y - ss + ss*12, COLOR_WHITE, (e_armor and TEXT_ALIGN_LEFT or TEXT_ALIGN_CENTER), TEXT_ALIGN_TOP )
+			end
+			if tc then
+				local teamcol = team.GetColor(tc)
+				local teamname = team.GetName(tc)
+				teamcol.a = teamcol.a * COOLNUM
+				draw.SimpleText( teamname, "NTGID_2", x + ss, y + ss - ss*6, COLOR_SHAD, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP )
+				draw.SimpleText( teamname, "NTGID_2", x, y - ss*6, teamcol, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP )
+			end
+
+			return true
+		end
 	end
 end )
