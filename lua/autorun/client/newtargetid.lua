@@ -76,7 +76,15 @@ hook.Add( "HUDDrawTargetID", "HidePlayerInfo", function()
 			if ( hitent:IsPlayer() ) then
 				text = hitent:Nick()
 			elseif ( cv_e:GetBool() ) then
-				text = language.GetPhrase(hitent.PrintName or hitent:GetClass())
+				if cv_e:GetInt() == 1 then
+					if hitent:GetClass() != language.GetPhrase(hitent:GetClass()) then
+						text = language.GetPhrase(hitent.PrintName or hitent:GetClass())
+					else
+						return
+					end
+				else
+					text = language.GetPhrase(hitent.PrintName or hitent:GetClass())
+				end
 			else
 				return
 			end
