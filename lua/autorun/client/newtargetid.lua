@@ -3,7 +3,7 @@
 ----
 
 CreateClientConVar("ftgid", 1, true, false)
-CreateClientConVar("ftgid_show_ents", 1, true, false)
+CreateClientConVar("ftgid_show_ents", 0, true, false)
 CreateClientConVar("ftgid_realhp", 1, true, false)
 
 CreateClientConVar("ftgid_font_scale", 1, true, false, nil, 0)
