@@ -4,11 +4,13 @@
 
 CreateClientConVar("ftgid", 1, true, false)
 CreateClientConVar("ftgid_show_ents", 1, true, false)
+CreateClientConVar("ftgid_realhp", 1, true, false)
 
 CreateClientConVar("ftgid_font_scale", 1, true, false, nil, 0)
 
 local cv = GetConVar("ftgid")
 local cv_e = GetConVar("ftgid_show_ents")
+local cv_r = GetConVar("ftgid_realhp")
 local cv_f = GetConVar("ftgid_font_scale")
 
 function ftgid_regenfonts()
@@ -59,7 +61,7 @@ hook.Add( "HUDDrawTargetID", "HidePlayerInfo", function()
 	local trace = util.TraceLine( {
 		start = sef:EyePos(),
 		endpos = sef:EyePos() + ( sef:GetAimVector() * 32768 ),
-		filter = sef,
+		filter = {sef, sef:GetVehicle(), IsValid(sef:GetVehicle()) and sef:GetVehicle():GetParent()},
 		mask = MASK_SHOT_HULL
 	} )
 	if ( !trace.Hit ) then COOLNUM = 0 return end
@@ -78,10 +80,10 @@ hook.Add( "HUDDrawTargetID", "HidePlayerInfo", function()
 		elseif sef:GetVehicle() == hitent then
 			COOLNUM = 0
 			return
-		elseif ( cv_e:GetBool() and hitent:IsScripted() ) then
-			text = hitent.PrintName or "(SENT missing PrintName)"
+		-- elseif ( cv_e:GetBool() and hitent:IsScripted() ) then
+		-- 	text = hitent.PrintName or "(SENT missing PrintName)"
 		elseif ( cv_e:GetBool() ) then
-			text = "#" .. hitent:GetClass()
+			text = language.GetPhrase(hitent.PrintName or hitent:GetClass())
 		else
 			COOLNUM = 0
 			return
@@ -101,10 +103,10 @@ hook.Add( "HUDDrawTargetID", "HidePlayerInfo", function()
 	surface.SetFont( font )
 	local w, h = surface.GetTextSize( text )
 
-	local mememm = hitent:GetPos() + hitent:OBBCenter()
+	local mememm, scrw, scrh = hitent:WorldSpaceCenter(), ScrW(), ScrH()
 	mememmm = mememm:ToScreen()
-	local x = mememmm.x
-	local y = mememmm.y
+	local x = math.Clamp(mememmm.x, 0+w*0.5, scrw-w*0.5)
+	local y = math.Clamp(mememmm.y+h*0.5, 0, scrh-h*1.5)
 	
 	x = x - w / 2
 	--y = y + (ss*30)
@@ -140,8 +142,9 @@ hook.Add( "HUDDrawTargetID", "HidePlayerInfo", function()
 	COLOR_WHITE.g = color_white.g
 	COLOR_WHITE.b = color_white.b
 	
+	local cv_re = cv_r:GetBool()
 	if hitent:Health() > 0 then
-		local text = hitent:Health() .. "%"
+		local text = cv_re and hitent:Health() .. " ♥" or math.Round(hitent:Health() / hitent:GetMaxHealth() * 100, 2) .. "%"
 		
 		surface.SetFont( font )
 		local w2, h2 = surface.GetTextSize( text )
@@ -153,15 +156,15 @@ hook.Add( "HUDDrawTargetID", "HidePlayerInfo", function()
 	end
 
 	if hitent.Armor and isfunction(hitent.Armor) and hitent:Armor() > 0 then
-		local text = hitent:Armor() .. "%"
+		local text = cv_re and "♦ " .. hitent:Armor() or math.Round(hitent:Armor() / hitent:GetMaxArmor() * 100, 2) .. "%"
 		
 		surface.SetFont( font )
 		local w2, h2 = surface.GetTextSize( text )
 		
 		surface.SetFont( font_s )
-		draw.SimpleText( text, font, x + ss + w - w2, y + (ss*12), COLOR_SHAD )
+		draw.SimpleText( text, font, x + ss + w, y + (ss*12), COLOR_SHAD, 2)
 		surface.SetFont( font )
-		draw.SimpleText( text, font, x + w - w2, y + (ss*11), COLOR_WHITE )
+		draw.SimpleText( text, font, x + w, y + (ss*11), COLOR_WHITE, 2 )
 	end
 
 	return true
